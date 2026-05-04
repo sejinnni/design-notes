@@ -12,6 +12,12 @@ const categoryPages = {
   etc: "etc.html",
 };
 
+const categoryLabels = {
+  build: "index",
+  design: "design",
+  etc: "etc",
+};
+
 const config = window.DESIGN_NOTES_SUPABASE || {};
 const hasSupabaseConfig = Boolean(config.url && config.anonKey);
 const adminEmails = (config.adminEmails || []).map((email) => email.toLowerCase());
@@ -79,7 +85,7 @@ const listItem = (post) => `
     <a href="${postUrl(post)}">
       <span>${escapeHtml(formatDate(post.date))}</span>
       <strong>${escapeHtml(post.title)}</strong>
-      <em>${escapeHtml(post.category)}</em>
+      <em>${escapeHtml(categoryLabels[post.category] || post.category)}</em>
     </a>
   </li>
 `;
@@ -146,7 +152,7 @@ const renderPostDetail = async () => {
   document.title = `${post.title} · Design Notes`;
   target.innerHTML = `
     <header class="post-header">
-      <p class="post-meta">${escapeHtml(post.category)} · ${escapeHtml(formatDate(post.date))}</p>
+      <p class="post-meta">${escapeHtml(categoryLabels[post.category] || post.category)} · ${escapeHtml(formatDate(post.date))}</p>
       <h1>${escapeHtml(post.title)}</h1>
       ${post.summary ? `<p>${escapeHtml(post.summary)}</p>` : ""}
     </header>
@@ -246,7 +252,7 @@ const renderAdminList = async () => {
               <a href="${postUrl(post)}">
                 <span>${escapeHtml(formatDate(post.date))}</span>
                 <strong>${escapeHtml(post.title)}</strong>
-                <em>${escapeHtml(post.category)}</em>
+                <em>${escapeHtml(categoryLabels[post.category] || post.category)}</em>
               </a>
               <button type="button" data-delete-post="${escapeHtml(post.id)}">Delete</button>
             </li>

@@ -211,7 +211,9 @@ h2 {
 }
 
 .post h1 {
-  font-size: clamp(38px, 6vw, 64px);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 600;
+  line-height: 1.18;
 }
 
 .post-section {
