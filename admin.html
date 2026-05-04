@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Write · Design Notes</title>
+    <meta name="description" content="로컬 스토리지에 글을 작성하는 관리자 화면" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html">Design Notes</a>
+      <nav class="nav" aria-label="Primary">
+        <a href="./index.html">Index</a>
+        <a href="./design.html">Design</a>
+        <a href="./etc.html">Etc</a>
+      </nav>
+    </header>
+
+    <main class="page">
+      <section class="intro admin-intro" aria-labelledby="page-title">
+        <p class="eyebrow">Write</p>
+        <h1 id="page-title">브라우저에 글을 저장합니다.</h1>
+        <p>
+          이 화면에서 작성한 글은 현재 브라우저의 로컬 스토리지에 저장됩니다.
+          서버에는 저장되지 않으므로 다른 기기나 브라우저에는 자동으로 동기화되지 않습니다.
+        </p>
+      </section>
+
+      <section class="block" aria-labelledby="editor-title">
+        <h2 id="editor-title">New post</h2>
+        <form class="editor-form" data-post-form>
+          <label>
+            Category
+            <select name="category" required>
+              <option value="design">Design</option>
+              <option value="build">Build</option>
+              <option value="etc">Etc</option>
+            </select>
+          </label>
+          <label>
+            Type
+            <input name="type" type="text" placeholder="Problem, Hypothesis, Solution..." />
+          </label>
+          <label>
+            Date
+            <input name="date" type="month" required />
+          </label>
+          <label class="full">
+            Title
+            <input name="title" type="text" required />
+          </label>
+          <label class="full">
+            Summary
+            <textarea name="summary" rows="3"></textarea>
+          </label>
+          <label class="full">
+            Problem
+            <textarea name="problem" rows="4"></textarea>
+          </label>
+          <label class="full">
+            Evidence
+            <textarea name="evidence" rows="4"></textarea>
+          </label>
+          <label class="full">
+            Hypothesis
+            <textarea name="hypothesis" rows="4"></textarea>
+          </label>
+          <label class="full">
+            Solution
+            <textarea name="solution" rows="4"></textarea>
+          </label>
+          <label class="full">
+            Result
+            <textarea name="result" rows="4"></textarea>
+          </label>
+          <div class="form-actions full">
+            <button type="submit">Save</button>
+            <button type="reset">Clear</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="block" aria-labelledby="local-title">
+        <h2 id="local-title">Local posts</h2>
+        <div data-admin-list></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>© 2026</span>
+      <a href="./index.html">Index</a>
+    </footer>
+    <script src="./app.js"></script>
+  </body>
+</html>
