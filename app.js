@@ -14,10 +14,13 @@ const categoryPages = {
 
 const config = window.DESIGN_NOTES_SUPABASE || {};
 const hasSupabaseConfig = Boolean(config.url && config.anonKey);
+const adminEmails = (config.adminEmails || []).map((email) => email.toLowerCase());
 const db =
   hasSupabaseConfig && window.supabase
     ? window.supabase.createClient(config.url, config.anonKey)
     : null;
+
+const isAdminEmail = (email) => adminEmails.includes(String(email || "").toLowerCase());
 
 const escapeHtml = (value) =>
   String(value || "")
@@ -160,11 +163,23 @@ const refreshAuthState = async () => {
   } = await db.auth.getSession();
 
   const email = session?.user?.email || "";
+  const isAdmin = session && isAdminEmail(email);
+  if (session && !isAdmin) {
+    await db.auth.signOut();
+    setAuthMessage("허용된 관리자 계정만 로그인할 수 있습니다.");
+    if (authPanel) {
+      authPanel.querySelector("[data-user-email]").textContent = "로그인 필요";
+      authPanel.querySelector("[data-sign-out]").hidden = true;
+    }
+    if (form) form.hidden = true;
+    return null;
+  }
+
   if (authPanel) {
     authPanel.querySelector("[data-user-email]").textContent = email || "로그인 필요";
     authPanel.querySelector("[data-sign-out]").hidden = !session;
   }
-  if (form) form.hidden = !session;
+  if (form) form.hidden = !isAdmin;
   return session;
 };
 
@@ -180,7 +195,7 @@ const renderAdminList = async () => {
   const {
     data: { session },
   } = await db.auth.getSession();
-  if (!session) {
+  if (!session || !isAdminEmail(session.user.email)) {
     target.innerHTML = '<p class="empty-note">로그인하면 저장한 글이 표시됩니다.</p>';
     return;
   }
@@ -251,6 +266,14 @@ const setupAuth = () => {
       return;
     }
 
+    if (!isAdminEmail(email)) {
+      await db.auth.signOut();
+      setAuthMessage("허용된 관리자 계정만 로그인할 수 있습니다.");
+      await refreshAuthState();
+      await renderAdminList();
+      return;
+    }
+
     signInForm.reset();
     setAuthMessage("");
     await refreshAuthState();
@@ -282,7 +305,7 @@ const setupForm = () => {
       data: { session },
     } = await db.auth.getSession();
 
-    if (!session) {
+    if (!session || !isAdminEmail(session.user.email)) {
       setAuthMessage("로그인 후 저장할 수 있습니다.");
       return;
     }
