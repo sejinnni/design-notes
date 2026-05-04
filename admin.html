@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Write · Design Notes</title>
-    <meta name="description" content="로컬 스토리지에 글을 작성하는 관리자 화면" />
+    <meta name="description" content="Supabase에 글을 작성하는 관리자 화면" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -20,16 +20,38 @@
     <main class="page">
       <section class="intro admin-intro" aria-labelledby="page-title">
         <p class="eyebrow">Write</p>
-        <h1 id="page-title">브라우저에 글을 저장합니다.</h1>
+        <h1 id="page-title">Supabase에 글을 저장합니다.</h1>
         <p>
-          이 화면에서 작성한 글은 현재 브라우저의 로컬 스토리지에 저장됩니다.
-          서버에는 저장되지 않으므로 다른 기기나 브라우저에는 자동으로 동기화되지 않습니다.
+          로그인한 사용자만 글을 저장하고 삭제할 수 있습니다.
+          공개된 글은 Index, Design, Etc 페이지에 자동으로 표시됩니다.
         </p>
+      </section>
+
+      <section class="block" aria-labelledby="auth-title">
+        <h2 id="auth-title">Sign in</h2>
+        <div class="auth-panel" data-auth-panel>
+          <p>Current: <span data-user-email>로그인 필요</span></p>
+          <button type="button" data-sign-out hidden>Sign out</button>
+        </div>
+        <form class="editor-form auth-form" data-sign-in-form>
+          <label>
+            Email
+            <input name="email" type="email" required />
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" required />
+          </label>
+          <div class="form-actions">
+            <button type="submit">Sign in</button>
+          </div>
+        </form>
+        <p class="form-message" data-auth-message></p>
       </section>
 
       <section class="block" aria-labelledby="editor-title">
         <h2 id="editor-title">New post</h2>
-        <form class="editor-form" data-post-form>
+        <form class="editor-form" data-post-form hidden>
           <label>
             Category
             <select name="category" required>
@@ -82,7 +104,7 @@
       </section>
 
       <section class="block" aria-labelledby="local-title">
-        <h2 id="local-title">Local posts</h2>
+        <h2 id="local-title">Posts</h2>
         <div data-admin-list></div>
       </section>
     </main>
@@ -91,6 +113,8 @@
       <span>© 2026</span>
       <a href="./index.html">Index</a>
     </footer>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase.config.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

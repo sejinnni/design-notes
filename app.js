@@ -1,5 +1,3 @@
-const STORAGE_KEY = "design-notes.posts";
-
 const sectionLabels = {
   problem: "문제",
   evidence: "근거",
@@ -14,17 +12,12 @@ const categoryPages = {
   etc: "etc.html",
 };
 
-const readPosts = () => {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
-};
-
-const writePosts = (posts) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-};
+const config = window.DESIGN_NOTES_SUPABASE || {};
+const hasSupabaseConfig = Boolean(config.url && config.anonKey);
+const db =
+  hasSupabaseConfig && window.supabase
+    ? window.supabase.createClient(config.url, config.anonKey)
+    : null;
 
 const escapeHtml = (value) =>
   String(value || "")
@@ -40,11 +33,34 @@ const formatDate = (value) => {
   return month ? `${year}. ${month}` : year;
 };
 
-const sortPosts = (posts) =>
-  [...posts].sort((a, b) => {
-    const byDate = String(b.date || "").localeCompare(String(a.date || ""));
-    return byDate || String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
-  });
+const getPosts = async (category) => {
+  if (!db) return { posts: [], error: "Supabase 설정이 필요합니다." };
+
+  let query = db
+    .from("posts")
+    .select("id, category, type, date, title, summary, created_at")
+    .eq("is_published", true)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (category) query = query.eq("category", category);
+
+  const { data, error } = await query;
+  return { posts: data || [], error: error?.message || "" };
+};
+
+const getPost = async (id) => {
+  if (!db) return { post: null, error: "Supabase 설정이 필요합니다." };
+
+  const { data, error } = await db
+    .from("posts")
+    .select("*")
+    .eq("id", id)
+    .eq("is_published", true)
+    .single();
+
+  return { post: data, error: error?.message || "" };
+};
 
 const postUrl = (post) => `./post.html?id=${encodeURIComponent(post.id)}`;
 
@@ -58,27 +74,45 @@ const listItem = (post) => `
   </li>
 `;
 
-const renderPostLists = () => {
-  document.querySelectorAll("[data-post-list]").forEach((target) => {
-    const category = target.dataset.postList;
-    const posts = sortPosts(readPosts()).filter((post) => post.category === category);
+const renderPostLists = async () => {
+  const targets = document.querySelectorAll("[data-post-list]");
+  await Promise.all(
+    [...targets].map(async (target) => {
+      const category = target.dataset.postList;
+      const { posts, error } = await getPosts(category);
 
-    if (!posts.length) {
-      target.innerHTML = `<p class="empty-note">${escapeHtml(target.dataset.empty || "아직 글이 없습니다.")}</p>`;
-      return;
-    }
+      if (error && !hasSupabaseConfig) {
+        target.innerHTML = '<p class="empty-note">Supabase 설정을 추가하면 글 목록이 표시됩니다.</p>';
+        return;
+      }
 
-    target.innerHTML = `<ol class="index-list">${posts.map(listItem).join("")}</ol>`;
-  });
+      if (error) {
+        target.innerHTML = `<p class="empty-note">${escapeHtml(error)}</p>`;
+        return;
+      }
+
+      if (!posts.length) {
+        target.innerHTML = `<p class="empty-note">${escapeHtml(target.dataset.empty || "아직 글이 없습니다.")}</p>`;
+        return;
+      }
+
+      target.innerHTML = `<ol class="index-list">${posts.map(listItem).join("")}</ol>`;
+    }),
+  );
 };
 
-const renderPostDetail = () => {
+const renderPostDetail = async () => {
   const target = document.querySelector("[data-post-detail]");
   if (!target) return;
 
   const id = new URLSearchParams(window.location.search).get("id");
-  const post = readPosts().find((item) => item.id === id);
-  if (!post) return;
+  if (!id) return;
+
+  const { post, error } = await getPost(id);
+  if (error || !post) {
+    target.innerHTML = `<p class="empty-note">${escapeHtml(error || "글을 찾을 수 없습니다.")}</p>`;
+    return;
+  }
 
   const sections = ["problem", "evidence", "hypothesis", "solution", "result"]
     .filter((key) => post[key])
@@ -105,19 +139,71 @@ const renderPostDetail = () => {
   `;
 };
 
-const renderAdminList = () => {
+const setAuthMessage = (message) => {
+  const target = document.querySelector("[data-auth-message]");
+  if (target) target.textContent = message || "";
+};
+
+const refreshAuthState = async () => {
+  const authPanel = document.querySelector("[data-auth-panel]");
+  const form = document.querySelector("[data-post-form]");
+  if (!authPanel && !form) return null;
+
+  if (!db) {
+    setAuthMessage("supabase.config.js에 URL과 anon key를 입력해야 합니다.");
+    if (form) form.hidden = true;
+    return null;
+  }
+
+  const {
+    data: { session },
+  } = await db.auth.getSession();
+
+  const email = session?.user?.email || "";
+  if (authPanel) {
+    authPanel.querySelector("[data-user-email]").textContent = email || "로그인 필요";
+    authPanel.querySelector("[data-sign-out]").hidden = !session;
+  }
+  if (form) form.hidden = !session;
+  return session;
+};
+
+const renderAdminList = async () => {
   const target = document.querySelector("[data-admin-list]");
   if (!target) return;
 
-  const posts = sortPosts(readPosts());
-  if (!posts.length) {
+  if (!db) {
+    target.innerHTML = '<p class="empty-note">Supabase 설정을 추가하면 저장한 글을 관리할 수 있습니다.</p>';
+    return;
+  }
+
+  const {
+    data: { session },
+  } = await db.auth.getSession();
+  if (!session) {
+    target.innerHTML = '<p class="empty-note">로그인하면 저장한 글이 표시됩니다.</p>';
+    return;
+  }
+
+  const { data, error } = await db
+    .from("posts")
+    .select("id, category, type, date, title, created_at")
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    target.innerHTML = `<p class="empty-note">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
+  if (!data.length) {
     target.innerHTML = '<p class="empty-note">저장한 글이 없습니다.</p>';
     return;
   }
 
   target.innerHTML = `
     <ol class="index-list admin-list">
-      ${posts
+      ${data
         .map(
           (post) => `
             <li>
@@ -135,11 +221,47 @@ const renderAdminList = () => {
   `;
 
   target.querySelectorAll("[data-delete-post]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const id = button.dataset.deletePost;
-      writePosts(readPosts().filter((post) => post.id !== id));
-      renderAdminList();
+      const { error: deleteError } = await db.from("posts").delete().eq("id", id);
+      if (deleteError) {
+        setAuthMessage(deleteError.message);
+        return;
+      }
+      await renderAdminList();
     });
+  });
+};
+
+const setupAuth = () => {
+  const signInForm = document.querySelector("[data-sign-in-form]");
+  if (!signInForm) return;
+
+  signInForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!db) return;
+
+    const data = new FormData(signInForm);
+    const email = data.get("email").trim();
+    const password = data.get("password");
+    const { error } = await db.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    signInForm.reset();
+    setAuthMessage("");
+    await refreshAuthState();
+    await renderAdminList();
+  });
+
+  document.querySelector("[data-sign-out]")?.addEventListener("click", async () => {
+    if (!db) return;
+    await db.auth.signOut();
+    await refreshAuthState();
+    await renderAdminList();
   });
 };
 
@@ -152,11 +274,21 @@ const setupForm = () => {
     dateInput.value = new Date().toISOString().slice(0, 7);
   }
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!db) return;
+
+    const {
+      data: { session },
+    } = await db.auth.getSession();
+
+    if (!session) {
+      setAuthMessage("로그인 후 저장할 수 있습니다.");
+      return;
+    }
+
     const data = new FormData(form);
     const post = {
-      id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now()),
       category: data.get("category"),
       type: data.get("type").trim(),
       date: data.get("date"),
@@ -167,17 +299,29 @@ const setupForm = () => {
       hypothesis: data.get("hypothesis").trim(),
       solution: data.get("solution").trim(),
       result: data.get("result").trim(),
-      createdAt: new Date().toISOString(),
+      is_published: true,
     };
 
-    writePosts([...readPosts(), post]);
+    const { error } = await db.from("posts").insert(post);
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
     form.reset();
     dateInput.value = new Date().toISOString().slice(0, 7);
-    renderAdminList();
+    setAuthMessage("저장했습니다.");
+    await renderAdminList();
   });
 };
 
-renderPostLists();
-renderPostDetail();
-setupForm();
-renderAdminList();
+const init = async () => {
+  await renderPostLists();
+  await renderPostDetail();
+  setupAuth();
+  setupForm();
+  await refreshAuthState();
+  await renderAdminList();
+};
+
+init();
