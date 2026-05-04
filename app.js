@@ -17,7 +17,14 @@ const hasSupabaseConfig = Boolean(config.url && config.anonKey);
 const adminEmails = (config.adminEmails || []).map((email) => email.toLowerCase());
 const db =
   hasSupabaseConfig && window.supabase
-    ? window.supabase.createClient(config.url, config.anonKey)
+    ? window.supabase.createClient(config.url, config.anonKey, {
+        auth: {
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          persistSession: true,
+          storageKey: "design-notes.auth",
+        },
+      })
     : null;
 
 const isAdminEmail = (email) => adminEmails.includes(String(email || "").toLowerCase());
@@ -41,7 +48,7 @@ const getPosts = async (category) => {
 
   let query = db
     .from("posts")
-    .select("id, category, type, date, title, summary, created_at")
+    .select("id, category, date, title, created_at")
     .eq("is_published", true)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -72,7 +79,7 @@ const listItem = (post) => `
     <a href="${postUrl(post)}">
       <span>${escapeHtml(formatDate(post.date))}</span>
       <strong>${escapeHtml(post.title)}</strong>
-      <em>${escapeHtml(post.type || post.category)}</em>
+      <em>${escapeHtml(post.category)}</em>
     </a>
   </li>
 `;
@@ -117,7 +124,13 @@ const renderPostDetail = async () => {
     return;
   }
 
-  const sections = ["problem", "evidence", "hypothesis", "solution", "result"]
+  const sections = post.content
+    ? `
+        <section class="post-section">
+          <p>${escapeHtml(post.content).replaceAll("\n", "<br />")}</p>
+        </section>
+      `
+    : ["problem", "evidence", "hypothesis", "solution", "result"]
     .filter((key) => post[key])
     .map(
       (key) => `
@@ -133,10 +146,11 @@ const renderPostDetail = async () => {
   document.title = `${post.title} · Design Notes`;
   target.innerHTML = `
     <header class="post-header">
-      <p class="post-meta">${escapeHtml(post.type || post.category)} · ${escapeHtml(formatDate(post.date))}</p>
+      <p class="post-meta">${escapeHtml(post.category)} · ${escapeHtml(formatDate(post.date))}</p>
       <h1>${escapeHtml(post.title)}</h1>
       ${post.summary ? `<p>${escapeHtml(post.summary)}</p>` : ""}
     </header>
+    ${post.image_url ? `<img class="post-image" src="${escapeHtml(post.image_url)}" alt="" />` : ""}
     ${sections || '<p class="empty-note">본문이 없습니다.</p>'}
     <a class="back-link" href="./${backPage}">Back</a>
   `;
@@ -150,6 +164,7 @@ const setAuthMessage = (message) => {
 const refreshAuthState = async () => {
   const authPanel = document.querySelector("[data-auth-panel]");
   const form = document.querySelector("[data-post-form]");
+  const signInForm = document.querySelector("[data-sign-in-form]");
   if (!authPanel && !form) return null;
 
   if (!db) {
@@ -180,6 +195,7 @@ const refreshAuthState = async () => {
     authPanel.querySelector("[data-sign-out]").hidden = !session;
   }
   if (form) form.hidden = !isAdmin;
+  if (signInForm) signInForm.hidden = Boolean(isAdmin);
   return session;
 };
 
@@ -202,7 +218,7 @@ const renderAdminList = async () => {
 
   const { data, error } = await db
     .from("posts")
-    .select("id, category, type, date, title, created_at")
+    .select("id, category, date, title, created_at")
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -297,6 +313,26 @@ const setupForm = () => {
     dateInput.value = new Date().toISOString().slice(0, 7);
   }
 
+  const uploadPostImage = async (file, session) => {
+    if (!file || !file.size) return "";
+
+    const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "jpg";
+    const path = `${session.user.id}/${Date.now()}.${extension.replace(/[^a-z0-9]/g, "")}`;
+    const { error } = await db.storage.from("post-images").upload(path, file, {
+      cacheControl: "31536000",
+      contentType: file.type || "image/jpeg",
+      upsert: false,
+    });
+
+    if (error) throw error;
+
+    const {
+      data: { publicUrl },
+    } = db.storage.from("post-images").getPublicUrl(path);
+
+    return publicUrl;
+  };
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!db) return;
@@ -311,17 +347,21 @@ const setupForm = () => {
     }
 
     const data = new FormData(form);
+    let imageUrl = "";
+
+    try {
+      imageUrl = await uploadPostImage(data.get("image"), session);
+    } catch (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
     const post = {
       category: data.get("category"),
-      type: data.get("type").trim(),
       date: data.get("date"),
       title: data.get("title").trim(),
-      summary: data.get("summary").trim(),
-      problem: data.get("problem").trim(),
-      evidence: data.get("evidence").trim(),
-      hypothesis: data.get("hypothesis").trim(),
-      solution: data.get("solution").trim(),
-      result: data.get("result").trim(),
+      content: data.get("content").trim(),
+      image_url: imageUrl,
       is_published: true,
     };
 

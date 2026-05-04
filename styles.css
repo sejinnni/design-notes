@@ -241,7 +241,7 @@ h2 {
 
 .editor-form {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -268,7 +268,7 @@ h2 {
 }
 
 .editor-form textarea {
-  min-height: 112px;
+  min-height: 280px;
   resize: vertical;
 }
 
@@ -297,6 +297,13 @@ h2 {
 .auth-panel p,
 .form-message {
   margin: 0;
+}
+
+.post-image {
+  display: block;
+  width: 100%;
+  margin-bottom: 48px;
+  border: 1px solid var(--line);
 }
 
 .auth-form {

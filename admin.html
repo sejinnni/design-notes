@@ -61,10 +61,6 @@
             </select>
           </label>
           <label>
-            Type
-            <input name="type" type="text" placeholder="Problem, Hypothesis, Solution..." />
-          </label>
-          <label>
             Date
             <input name="date" type="month" required />
           </label>
@@ -73,28 +69,12 @@
             <input name="title" type="text" required />
           </label>
           <label class="full">
-            Summary
-            <textarea name="summary" rows="3"></textarea>
+            글 작성
+            <textarea name="content" rows="12" required></textarea>
           </label>
           <label class="full">
-            Problem
-            <textarea name="problem" rows="4"></textarea>
-          </label>
-          <label class="full">
-            Evidence
-            <textarea name="evidence" rows="4"></textarea>
-          </label>
-          <label class="full">
-            Hypothesis
-            <textarea name="hypothesis" rows="4"></textarea>
-          </label>
-          <label class="full">
-            Solution
-            <textarea name="solution" rows="4"></textarea>
-          </label>
-          <label class="full">
-            Result
-            <textarea name="result" rows="4"></textarea>
+            이미지 첨부
+            <input name="image" type="file" accept="image/*" />
           </label>
           <div class="form-actions full">
             <button type="submit">Save</button>
