@@ -108,9 +108,9 @@ ol {
 
 h1 {
   margin-bottom: 28px;
-  font-size: clamp(40px, 7vw, 72px);
-  font-weight: 720;
-  line-height: 1.08;
+  font-size: clamp(30px, 4.6vw, 48px);
+  font-weight: 600;
+  line-height: 1.16;
   letter-spacing: 0;
 }
 
@@ -362,6 +362,25 @@ h2 {
   font-size: 14px;
 }
 
+.footer-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.footer-actions button {
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.footer-actions button:hover {
+  color: var(--ink);
+  border-bottom-color: currentColor;
+}
+
 @media (max-width: 760px) {
   .site-header,
   .site-footer {
@@ -379,7 +398,7 @@ h2 {
   }
 
   h1 {
-    font-size: 40px;
+    font-size: 30px;
   }
 
   .index-list a {

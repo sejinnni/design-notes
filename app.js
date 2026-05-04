@@ -162,6 +162,7 @@ const setAuthMessage = (message) => {
 };
 
 const refreshAuthState = async () => {
+  const authSection = document.querySelector("[data-auth-section]");
   const authPanel = document.querySelector("[data-auth-panel]");
   const form = document.querySelector("[data-post-form]");
   const signInForm = document.querySelector("[data-sign-in-form]");
@@ -187,15 +188,19 @@ const refreshAuthState = async () => {
       authPanel.querySelector("[data-sign-out]").hidden = true;
     }
     if (form) form.hidden = true;
+    if (authSection) authSection.hidden = false;
     return null;
   }
 
   if (authPanel) {
     authPanel.querySelector("[data-user-email]").textContent = email || "로그인 필요";
-    authPanel.querySelector("[data-sign-out]").hidden = !session;
   }
   if (form) form.hidden = !isAdmin;
   if (signInForm) signInForm.hidden = Boolean(isAdmin);
+  if (authSection) authSection.hidden = Boolean(isAdmin);
+  document.querySelectorAll("[data-sign-out]").forEach((button) => {
+    button.hidden = !isAdmin;
+  });
   return session;
 };
 

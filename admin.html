@@ -27,7 +27,7 @@
         </p>
       </section>
 
-      <section class="block" aria-labelledby="auth-title">
+      <section class="block" aria-labelledby="auth-title" data-auth-section>
         <h2 id="auth-title">Sign in</h2>
         <div class="auth-panel" data-auth-panel>
           <p>Current: <span data-user-email>로그인 필요</span></p>
@@ -91,7 +91,10 @@
 
     <footer class="site-footer">
       <span>© 2026</span>
-      <a href="./index.html">Index</a>
+      <span class="footer-actions">
+        <button type="button" data-sign-out hidden>Sign out</button>
+        <a href="./index.html">Index</a>
+      </span>
     </footer>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./supabase.config.js"></script>
