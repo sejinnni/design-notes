@@ -43,6 +43,14 @@ const escapeHtml = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
+const renderFormattedText = (value) =>
+  escapeHtml(value)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/~~([^~\n]+)~~/g, "<s>$1</s>")
+    .replace(/\+\+([^+\n]+)\+\+/g, "<u>$1</u>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replaceAll("\n", "<br />");
+
 const formatDate = (value) => {
   if (!value) return "";
   const [year, month] = value.split("-");
@@ -133,7 +141,7 @@ const renderPostDetail = async () => {
   const sections = post.content
     ? `
         <section class="post-section">
-          <p>${escapeHtml(post.content).replaceAll("\n", "<br />")}</p>
+          <p>${renderFormattedText(post.content)}</p>
         </section>
       `
     : ["problem", "evidence", "hypothesis", "solution", "result"]
@@ -142,7 +150,7 @@ const renderPostDetail = async () => {
       (key) => `
         <section class="post-section">
           <h2>${sectionLabels[key]}</h2>
-          <p>${escapeHtml(post[key]).replaceAll("\n", "<br />")}</p>
+          <p>${renderFormattedText(post[key])}</p>
         </section>
       `,
     )
@@ -445,11 +453,67 @@ const setupForm = () => {
   });
 };
 
+const setupFormatToolbar = () => {
+  const textarea = document.querySelector('textarea[name="content"]');
+  const toolbar = document.querySelector("[data-format-toolbar]");
+  if (!textarea || !toolbar) return;
+
+  const markers = {
+    bold: ["**", "**"],
+    italic: ["*", "*"],
+    strike: ["~~", "~~"],
+    underline: ["++", "++"],
+  };
+
+  const updateToolbar = () => {
+    const hasSelection = textarea.selectionStart !== textarea.selectionEnd;
+    const rect = textarea.getBoundingClientRect();
+    toolbar.hidden = !hasSelection || document.activeElement !== textarea;
+
+    if (!toolbar.hidden) {
+      toolbar.style.left = `${Math.max(16, rect.left)}px`;
+      toolbar.style.top = `${Math.max(16, rect.top - toolbar.offsetHeight - 10)}px`;
+    }
+  };
+
+  const applyFormat = (type) => {
+    const marker = markers[type];
+    if (!marker) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = textarea.value.slice(start, end);
+    if (!selected) return;
+
+    textarea.setRangeText(`${marker[0]}${selected}${marker[1]}`, start, end, "select");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.focus();
+    updateToolbar();
+  };
+
+  toolbar.querySelectorAll("[data-format]").forEach((button) => {
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => applyFormat(button.dataset.format));
+  });
+
+  textarea.addEventListener("select", updateToolbar);
+  textarea.addEventListener("keyup", updateToolbar);
+  textarea.addEventListener("mouseup", updateToolbar);
+  textarea.addEventListener("blur", () => {
+    window.setTimeout(() => {
+      toolbar.hidden = true;
+    }, 120);
+  });
+  window.addEventListener("scroll", updateToolbar, { passive: true });
+  window.addEventListener("resize", updateToolbar);
+};
+
 const init = async () => {
   await renderPostLists();
   await renderPostDetail();
   setupAuth();
   setupForm();
+  setupFormatToolbar();
   await refreshAuthState();
   await renderAdminList();
 };

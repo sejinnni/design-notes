@@ -286,6 +286,35 @@ h2 {
   gap: 10px;
 }
 
+.format-toolbar {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  box-shadow: 0 8px 30px rgba(21, 21, 21, 0.12);
+}
+
+.format-toolbar[hidden] {
+  display: none;
+}
+
+.format-toolbar button {
+  width: 36px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.format-toolbar button:hover {
+  background: var(--hover);
+}
+
 .auth-panel {
   display: flex;
   align-items: center;

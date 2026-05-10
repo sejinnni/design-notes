@@ -72,6 +72,12 @@
             글 작성
             <textarea name="content" rows="12" required></textarea>
           </label>
+          <div class="format-toolbar" data-format-toolbar hidden aria-label="텍스트 서식">
+            <button type="button" data-format="bold" aria-label="Bold">B</button>
+            <button type="button" data-format="italic" aria-label="Italic"><i>I</i></button>
+            <button type="button" data-format="strike" aria-label="Strikethrough"><s>S</s></button>
+            <button type="button" data-format="underline" aria-label="Underline"><u>U</u></button>
+          </div>
           <label class="full">
             이미지 첨부
             <input name="image" type="file" accept="image/*" />
