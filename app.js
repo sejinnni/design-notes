@@ -210,6 +210,28 @@ const refreshAuthState = async () => {
   return session;
 };
 
+const loadPostIntoEditor = (post) => {
+  const form = document.querySelector("[data-post-form]");
+  if (!form) return;
+
+  form.hidden = false;
+  form.dataset.editingPostId = post.id;
+  form.dataset.currentImageUrl = post.image_url || "";
+  form.elements.category.value = post.category || "design";
+  form.elements.date.value = post.date || new Date().toISOString().slice(0, 7);
+  form.elements.title.value = post.title || "";
+  form.elements.content.value =
+    post.content ||
+    [post.problem, post.evidence, post.hypothesis, post.solution, post.result]
+      .filter(Boolean)
+      .join("\n\n");
+  form.elements.image.value = "";
+
+  const saveLabel = form.querySelector("[data-save-label]");
+  if (saveLabel) saveLabel.textContent = "Update";
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
 const renderAdminList = async () => {
   const target = document.querySelector("[data-admin-list]");
   if (!target) return;
@@ -254,13 +276,29 @@ const renderAdminList = async () => {
                 <strong>${escapeHtml(post.title)}</strong>
                 <em>${escapeHtml(categoryLabels[post.category] || post.category)}</em>
               </a>
-              <button type="button" data-delete-post="${escapeHtml(post.id)}">Delete</button>
+              <span class="admin-actions">
+                <button type="button" data-edit-post="${escapeHtml(post.id)}">Edit</button>
+                <button type="button" data-delete-post="${escapeHtml(post.id)}">Delete</button>
+              </span>
             </li>
           `,
         )
         .join("")}
     </ol>
   `;
+
+  target.querySelectorAll("[data-edit-post]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.editPost;
+      const { post, error } = await getPost(id);
+      if (error || !post) {
+        setAuthMessage(error || "글을 불러오지 못했습니다.");
+        return;
+      }
+      loadPostIntoEditor(post);
+      setAuthMessage("수정할 글을 불러왔습니다.");
+    });
+  });
 
   target.querySelectorAll("[data-delete-post]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -320,9 +358,17 @@ const setupForm = () => {
   if (!form) return;
 
   const dateInput = form.elements.date;
+  const saveLabel = form.querySelector("[data-save-label]");
   if (dateInput && !dateInput.value) {
     dateInput.value = new Date().toISOString().slice(0, 7);
   }
+
+  const resetFormState = () => {
+    delete form.dataset.editingPostId;
+    delete form.dataset.currentImageUrl;
+    if (saveLabel) saveLabel.textContent = "Save";
+    if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 7);
+  };
 
   const uploadPostImage = async (file, session) => {
     if (!file || !file.size) return "";
@@ -358,10 +404,10 @@ const setupForm = () => {
     }
 
     const data = new FormData(form);
-    let imageUrl = "";
+    let imageUrl = form.dataset.currentImageUrl || "";
 
     try {
-      imageUrl = await uploadPostImage(data.get("image"), session);
+      imageUrl = (await uploadPostImage(data.get("image"), session)) || imageUrl;
     } catch (error) {
       setAuthMessage(error.message);
       return;
@@ -376,7 +422,12 @@ const setupForm = () => {
       is_published: true,
     };
 
-    const { error } = await db.from("posts").insert(post);
+    const editingPostId = form.dataset.editingPostId;
+    const request = editingPostId
+      ? db.from("posts").update(post).eq("id", editingPostId)
+      : db.from("posts").insert(post);
+
+    const { error } = await request;
     if (error) {
       setAuthMessage(error.message);
       return;
@@ -384,8 +435,13 @@ const setupForm = () => {
 
     form.reset();
     dateInput.value = new Date().toISOString().slice(0, 7);
-    setAuthMessage("저장했습니다.");
+    resetFormState();
+    setAuthMessage(editingPostId ? "수정했습니다." : "저장했습니다.");
     await renderAdminList();
+  });
+
+  form.addEventListener("reset", () => {
+    window.setTimeout(resetFormState, 0);
   });
 };
 

@@ -349,6 +349,11 @@ h2 {
   border-bottom: 0;
 }
 
+.admin-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .back-link {
   display: inline-block;
   margin-top: 52px;
