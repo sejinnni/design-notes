@@ -53,12 +53,75 @@ const stripHtml = (value) => decodeHtml(String(value || "").replace(/<[^>]*>/g, 
 
 const renderFormattedText = (value) =>
   escapeHtml(value)
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
     .replace(/~~([^~\n]+)~~/g, "<s>$1</s>")
     .replace(/\+\+([^+\n]+)\+\+/g, "<u>$1</u>")
     .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
     .replace(/\[\[color:(red|blue|green|yellow)\]\]([\s\S]*?)\[\[\/color\]\]/g, '<span class="text-color-$1">$2</span>')
     .replaceAll("\n", "<br />");
+
+const splitMarkdownRow = (line) => {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const cells = [];
+  let cell = "";
+  let escaped = false;
+
+  for (const char of trimmed) {
+    if (char === "|" && !escaped) {
+      cells.push(cell.trim().replace(/\\\|/g, "|"));
+      cell = "";
+      continue;
+    }
+
+    if (escaped && char !== "|") cell += "\\";
+    if (char === "\\" && !escaped) {
+      escaped = true;
+      continue;
+    }
+
+    cell += char;
+    escaped = false;
+  }
+
+  cells.push(cell.trim().replace(/\\\|/g, "|"));
+  return cells;
+};
+
+const isTableDivider = (line) =>
+  splitMarkdownRow(line).every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+
+const renderMarkdownTable = (lines, start) => {
+  if (!lines[start]?.includes("|") || !isTableDivider(lines[start + 1] || "")) return null;
+
+  const header = splitMarkdownRow(lines[start]);
+  const rows = [];
+  let index = start + 2;
+
+  while (index < lines.length && lines[index].trim().includes("|")) {
+    rows.push(splitMarkdownRow(lines[index]));
+    index += 1;
+  }
+
+  const renderCell = (cell, tag) => `<${tag}>${renderFormattedText(cell)}</${tag}>`;
+  const columnCount = header.length;
+  const normalizedRows = rows.map((row) =>
+    Array.from({ length: columnCount }, (_, cellIndex) => row[cellIndex] || ""),
+  );
+
+  return {
+    html: `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>${header.map((cell) => renderCell(cell, "th")).join("")}</tr></thead>
+          <tbody>${normalizedRows.map((row) => `<tr>${row.map((cell) => renderCell(cell, "td")).join("")}</tr>`).join("")}</tbody>
+        </table>
+      </div>
+    `,
+    nextIndex: index,
+  };
+};
 
 const parseUrl = (value) => {
   try {
@@ -147,8 +210,12 @@ const renderEmbed = (url) => {
 };
 
 const renderContent = (value) => {
+  const lines = String(value || "").replace(/\r\n/g, "\n").split("\n");
   const html = [];
   let paragraph = [];
+  let list = null;
+  let quote = [];
+  let code = null;
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
@@ -156,27 +223,119 @@ const renderContent = (value) => {
     paragraph = [];
   };
 
-  String(value || "")
-    .split("\n")
-    .forEach((line) => {
-      const trimmed = line.trim();
-      const url = parseUrl(trimmed);
+  const flushList = () => {
+    if (!list) return;
+    const items = list.items
+      .map((item) => {
+        const task = item.match(/^\[( |x|X)\]\s+(.+)$/);
+        if (!task) return `<li>${renderFormattedText(item)}</li>`;
+        return `
+          <li class="task-item">
+            <input type="checkbox" disabled ${task[1].toLowerCase() === "x" ? "checked" : ""} />
+            <span>${renderFormattedText(task[2])}</span>
+          </li>
+        `;
+      })
+      .join("");
+    html.push(`<${list.type}>${items}</${list.type}>`);
+    list = null;
+  };
 
-      if (!trimmed) {
-        flushParagraph();
-        return;
+  const flushQuote = () => {
+    if (!quote.length) return;
+    html.push(`<blockquote><p>${renderFormattedText(quote.join("\n"))}</p></blockquote>`);
+    quote = [];
+  };
+
+  const flushLooseBlocks = () => {
+    flushParagraph();
+    flushList();
+    flushQuote();
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (code) {
+      if (trimmed.startsWith("```")) {
+        html.push(`<pre><code>${escapeHtml(code.lines.join("\n"))}</code></pre>`);
+        code = null;
+      } else {
+        code.lines.push(line);
       }
+      continue;
+    }
 
-      if (url && trimmed === line.trim()) {
-        flushParagraph();
-        html.push(renderEmbed(url));
-        return;
-      }
+    if (trimmed.startsWith("```")) {
+      flushLooseBlocks();
+      code = { lines: [] };
+      continue;
+    }
 
-      paragraph.push(line);
-    });
+    if (!trimmed) {
+      flushLooseBlocks();
+      continue;
+    }
+
+    const table = renderMarkdownTable(lines, index);
+    if (table) {
+      flushLooseBlocks();
+      html.push(table.html);
+      index = table.nextIndex - 1;
+      continue;
+    }
+
+    const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      flushLooseBlocks();
+      const level = heading[1].length + 1;
+      html.push(`<h${level}>${renderFormattedText(heading[2])}</h${level}>`);
+      continue;
+    }
+
+    if (/^---+$/.test(trimmed)) {
+      flushLooseBlocks();
+      html.push("<hr />");
+      continue;
+    }
+
+    const quoteMatch = trimmed.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      flushParagraph();
+      flushList();
+      quote.push(quoteMatch[1]);
+      continue;
+    }
+
+    const listMatch = trimmed.match(/^([-*+])\s+(.+)$/) || trimmed.match(/^\d+[.)]\s+(.+)$/);
+    if (listMatch) {
+      flushParagraph();
+      flushQuote();
+      const isOrdered = /^\d+[.)]/.test(trimmed);
+      const type = isOrdered ? "ol" : "ul";
+      if (!list || list.type !== type) flushList();
+      if (!list) list = { type, items: [] };
+      list.items.push(listMatch[2] || listMatch[1]);
+      continue;
+    }
+
+    const url = parseUrl(trimmed);
+    if (url && trimmed === line.trim()) {
+      flushLooseBlocks();
+      html.push(renderEmbed(url));
+      continue;
+    }
+
+    flushList();
+    flushQuote();
+    paragraph.push(line);
+  }
 
   flushParagraph();
+  flushList();
+  flushQuote();
+  if (code) html.push(`<pre><code>${escapeHtml(code.lines.join("\n"))}</code></pre>`);
   return html.join("");
 };
 
@@ -669,6 +828,74 @@ const setupFormatToolbar = () => {
   window.addEventListener("resize", updateToolbar);
 };
 
+const tableCellToMarkdown = (value) =>
+  String(value || "")
+    .replace(/\|/g, "\\|")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const rowsToMarkdownTable = (rows) => {
+  const normalizedRows = rows
+    .map((row) => row.map(tableCellToMarkdown))
+    .filter((row) => row.some(Boolean));
+  if (!normalizedRows.length) return "";
+
+  const columnCount = Math.max(...normalizedRows.map((row) => row.length));
+  const tableRows = normalizedRows.map((row) =>
+    Array.from({ length: columnCount }, (_, index) => row[index] || ""),
+  );
+  const [header, ...body] = tableRows;
+  const divider = Array.from({ length: columnCount }, () => "---");
+  const contentRows = body.length ? body : [Array.from({ length: columnCount }, () => "")];
+
+  return [header, divider, ...contentRows].map((row) => `| ${row.join(" | ")} |`).join("\n");
+};
+
+const htmlTableToMarkdown = (html) => {
+  if (!html || !html.includes("<table")) return "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const table = doc.querySelector("table");
+  if (!table) return "";
+
+  const rows = [...table.rows].map((row) => [...row.cells].map((cell) => cell.textContent || ""));
+  return rowsToMarkdownTable(rows);
+};
+
+const tabTextToMarkdownTable = (text) => {
+  const rows = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => line.split("\t"));
+
+  if (rows.length < 2 || rows.some((row) => row.length < 2)) return "";
+  return rowsToMarkdownTable(rows);
+};
+
+const setupMarkdownPaste = () => {
+  const textarea = document.querySelector('textarea[name="content"]');
+  if (!textarea) return;
+
+  textarea.addEventListener("paste", (event) => {
+    const clipboard = event.clipboardData;
+    if (!clipboard) return;
+
+    const markdownTable =
+      htmlTableToMarkdown(clipboard.getData("text/html")) ||
+      tabTextToMarkdownTable(clipboard.getData("text/plain"));
+    if (!markdownTable) return;
+
+    event.preventDefault();
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const prefix = start > 0 && textarea.value[start - 1] !== "\n" ? "\n\n" : "";
+    const suffix = textarea.value[end] && textarea.value[end] !== "\n" ? "\n\n" : "";
+    textarea.setRangeText(`${prefix}${markdownTable}${suffix}`, start, end, "end");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+};
+
 const setupLinkPreview = () => {
   const textarea = document.querySelector('textarea[name="content"]');
   const preview = document.querySelector("[data-link-preview]");
@@ -718,6 +945,7 @@ const init = async () => {
   setupAuth();
   setupForm();
   setupFormatToolbar();
+  setupMarkdownPaste();
   setupLinkPreview();
   await refreshAuthState();
   await renderAdminList();
