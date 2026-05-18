@@ -65,29 +65,34 @@ const wordpressPostMetadata = async (target, signal) => {
   const postId = target.searchParams.get("p");
   if (!postId || !/^\d+$/.test(postId)) return null;
 
-  const endpoint = new URL(`/wp-json/wp/v2/posts/${postId}?_embed=1`, target.origin);
-  const response = await fetch(endpoint.href, {
-    headers: {
-      "user-agent": "Mozilla/5.0 (compatible; DesignNotesBot/1.0)",
-    },
-    signal,
-  });
-  if (!response.ok) return null;
+  try {
+    const endpoint = new URL(`/wp-json/wp/v2/posts/${postId}`, target.origin);
+    const response = await fetch(endpoint.href, {
+      headers: {
+        "user-agent": "Mozilla/5.0 (compatible; DesignNotesBot/1.0)",
+      },
+      signal,
+    });
+    if (!response.ok) return null;
 
-  const post = await response.json();
-  const embeddedImage =
-    post._embedded?.["wp:featuredmedia"]?.[0]?.source_url ||
-    post.yoast_head_json?.og_image?.[0]?.url ||
-    "";
+    const post = await response.json();
+    const yoast = post.yoast_head_json || {};
+    const image =
+      yoast.og_image?.[0]?.url ||
+      post._embedded?.["wp:featuredmedia"]?.[0]?.source_url ||
+      "";
 
-  return {
-    description: stripTags(post.excerpt?.rendered || post.yoast_head_json?.og_description || ""),
-    hostname: target.hostname.replace(/^www\./, ""),
-    image: embeddedImage,
-    siteName: post.yoast_head_json?.og_site_name || target.hostname.replace(/^www\./, ""),
-    title: stripTags(post.title?.rendered || post.yoast_head_json?.title || target.href),
-    url: post.link || target.href,
-  };
+    return {
+      description: stripTags(yoast.og_description || yoast.description || post.excerpt?.rendered || ""),
+      hostname: target.hostname.replace(/^www\./, ""),
+      image,
+      siteName: yoast.og_site_name || target.hostname.replace(/^www\./, ""),
+      title: stripTags(yoast.og_title || yoast.title || post.title?.rendered || target.href),
+      url: post.link || target.href,
+    };
+  } catch {
+    return null;
+  }
 };
 
 module.exports = async (req, res) => {
