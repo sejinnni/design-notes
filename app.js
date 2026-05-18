@@ -57,6 +57,7 @@ const renderFormattedText = (value) =>
     .replace(/~~([^~\n]+)~~/g, "<s>$1</s>")
     .replace(/\+\+([^+\n]+)\+\+/g, "<u>$1</u>")
     .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/\[\[color:(red|blue|green|yellow)\]\]([\s\S]*?)\[\[\/color\]\]/g, '<span class="text-color-$1">$2</span>')
     .replaceAll("\n", "<br />");
 
 const parseUrl = (value) => {
@@ -619,6 +620,10 @@ const setupFormatToolbar = () => {
     italic: ["*", "*"],
     strike: ["~~", "~~"],
     underline: ["++", "++"],
+    "color-red": ["[[color:red]]", "[[/color]]"],
+    "color-blue": ["[[color:blue]]", "[[/color]]"],
+    "color-green": ["[[color:green]]", "[[/color]]"],
+    "color-yellow": ["[[color:yellow]]", "[[/color]]"],
   };
 
   const updateToolbar = () => {

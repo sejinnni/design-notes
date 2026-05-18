@@ -279,6 +279,22 @@ h2 {
   font-size: 14px;
 }
 
+.text-color-red {
+  color: #c94a3a;
+}
+
+.text-color-blue {
+  color: #2f67b1;
+}
+
+.text-color-green {
+  color: #3f7c58;
+}
+
+.text-color-yellow {
+  color: #9a6a16;
+}
+
 .embed-video {
   aspect-ratio: 16 / 9;
   border: 1px solid var(--line);
@@ -383,6 +399,40 @@ h2 {
 
 .format-toolbar button:hover {
   background: var(--hover);
+}
+
+.format-divider {
+  width: 1px;
+  margin: 5px 4px;
+  background: var(--line);
+}
+
+.format-toolbar .color-swatch {
+  position: relative;
+}
+
+.format-toolbar .color-swatch::after {
+  position: absolute;
+  inset: 10px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  content: "";
+}
+
+.format-toolbar .color-red::after {
+  background: #c94a3a;
+}
+
+.format-toolbar .color-blue::after {
+  background: #2f67b1;
+}
+
+.format-toolbar .color-green::after {
+  background: #3f7c58;
+}
+
+.format-toolbar .color-yellow::after {
+  background: #f0c66a;
 }
 
 .auth-panel {
