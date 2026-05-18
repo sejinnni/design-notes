@@ -60,6 +60,14 @@ const parseUrl = (value) => {
   }
 };
 
+const findFirstUrl = (value) => String(value || "").match(/https?:\/\/[^\s<>"']+/)?.[0] || "";
+
+const fetchMetadata = async (url) => {
+  const response = await fetch(`/api/metadata?url=${encodeURIComponent(url)}`);
+  if (!response.ok) throw new Error("링크 정보를 가져오지 못했습니다.");
+  return response.json();
+};
+
 const getYoutubeEmbedUrl = (url) => {
   const host = url.hostname.replace(/^www\./, "");
   if (host === "youtu.be") return `https://www.youtube.com/embed/${url.pathname.slice(1)}`;
@@ -86,23 +94,73 @@ const renderEmbed = (url) => {
   }
 
   return `
-    <a class="embed-link" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">
+    <a class="embed-link" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer" data-embed-url="${escapeHtml(url.href)}">
       <span>${escapeHtml(url.hostname.replace(/^www\./, ""))}</span>
       <strong>${escapeHtml(url.href)}</strong>
     </a>
   `;
 };
 
-const renderContent = (value) =>
+const renderContent = (value) => {
+  const html = [];
+  let paragraph = [];
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    html.push(`<p>${renderFormattedText(paragraph.join("\n"))}</p>`);
+    paragraph = [];
+  };
+
   String(value || "")
-    .split(/\n{2,}/)
-    .map((block) => {
-      const trimmed = block.trim();
+    .split("\n")
+    .forEach((line) => {
+      const trimmed = line.trim();
       const url = parseUrl(trimmed);
-      if (url && trimmed === block.trim()) return renderEmbed(url);
-      return `<p>${renderFormattedText(block)}</p>`;
-    })
-    .join("");
+
+      if (!trimmed) {
+        flushParagraph();
+        return;
+      }
+
+      if (url && trimmed === line.trim()) {
+        flushParagraph();
+        html.push(renderEmbed(url));
+        return;
+      }
+
+      paragraph.push(line);
+    });
+
+  flushParagraph();
+  return html.join("");
+};
+
+const renderMetadataCard = (metadata) => `
+  <a class="embed-link has-preview" href="${escapeHtml(metadata.url)}" target="_blank" rel="noopener noreferrer">
+    ${metadata.image ? `<img src="${escapeHtml(metadata.image)}" alt="" loading="lazy" />` : ""}
+    <span>${escapeHtml(metadata.siteName || metadata.hostname || "")}</span>
+    <strong>${escapeHtml(metadata.title || metadata.url)}</strong>
+    ${metadata.description ? `<p>${escapeHtml(metadata.description)}</p>` : ""}
+  </a>
+`;
+
+const hydrateEmbeds = async (root = document) => {
+  const cards = root.querySelectorAll("[data-embed-url]");
+  await Promise.all(
+    [...cards].map(async (card) => {
+      const url = card.dataset.embedUrl;
+      if (!url || card.dataset.hydrated) return;
+      card.dataset.hydrated = "true";
+
+      try {
+        const metadata = await fetchMetadata(url);
+        card.outerHTML = renderMetadataCard(metadata);
+      } catch {
+        card.dataset.hydrated = "failed";
+      }
+    }),
+  );
+};
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -221,6 +279,7 @@ const renderPostDetail = async () => {
     ${sections || '<p class="empty-note">본문이 없습니다.</p>'}
     <a class="back-link" href="./${backPage}">Back</a>
   `;
+  await hydrateEmbeds(target);
 };
 
 const setAuthMessage = (message) => {
@@ -561,12 +620,56 @@ const setupFormatToolbar = () => {
   window.addEventListener("resize", updateToolbar);
 };
 
+const setupLinkPreview = () => {
+  const textarea = document.querySelector('textarea[name="content"]');
+  const preview = document.querySelector("[data-link-preview]");
+  if (!textarea || !preview) return;
+
+  let lastUrl = "";
+  let timer = 0;
+
+  const renderPreview = async () => {
+    const urlValue = findFirstUrl(textarea.value);
+    if (!urlValue) {
+      lastUrl = "";
+      preview.hidden = true;
+      preview.innerHTML = "";
+      return;
+    }
+
+    if (urlValue === lastUrl) return;
+    lastUrl = urlValue;
+
+    const url = parseUrl(urlValue);
+    if (!url) return;
+
+    preview.hidden = false;
+    preview.innerHTML = renderEmbed(url);
+
+    const genericCard = preview.querySelector("[data-embed-url]");
+    if (genericCard) {
+      try {
+        const metadata = await fetchMetadata(url.href);
+        preview.innerHTML = renderMetadataCard(metadata);
+      } catch {
+        preview.innerHTML = renderEmbed(url);
+      }
+    }
+  };
+
+  textarea.addEventListener("input", () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(renderPreview, 300);
+  });
+};
+
 const init = async () => {
   await renderPostLists();
   await renderPostDetail();
   setupAuth();
   setupForm();
   setupFormatToolbar();
+  setupLinkPreview();
   await refreshAuthState();
   await renderAdminList();
 };

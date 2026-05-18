@@ -246,6 +246,23 @@ h2 {
   border-bottom: 1px solid var(--line);
 }
 
+.embed-link.has-preview {
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 8px 18px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+
+.embed-link.has-preview img {
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  width: 132px;
+  height: 88px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
 .embed-link span {
   color: var(--muted);
   font-size: 13px;
@@ -254,6 +271,12 @@ h2 {
 .embed-link strong {
   overflow-wrap: anywhere;
   font-weight: 600;
+}
+
+.embed-link p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .embed-video {
@@ -327,6 +350,10 @@ h2 {
 .form-actions {
   display: flex;
   gap: 10px;
+}
+
+.link-preview {
+  grid-column: 1 / -1;
 }
 
 .format-toolbar {
@@ -493,6 +520,18 @@ h2 {
   .two-column {
     grid-template-columns: 1fr;
     gap: 48px;
+  }
+
+  .embed-link.has-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .embed-link.has-preview img {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
   }
 
   .editor-form,
