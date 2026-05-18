@@ -59,6 +59,37 @@ const clean = (value = "") =>
     .replace(/\s+/g, " ")
     .trim();
 
+const stripTags = (value = "") => clean(String(value).replace(/<[^>]*>/g, " "));
+
+const wordpressPostMetadata = async (target, signal) => {
+  const postId = target.searchParams.get("p");
+  if (!postId || !/^\d+$/.test(postId)) return null;
+
+  const endpoint = new URL(`/wp-json/wp/v2/posts/${postId}?_embed=1`, target.origin);
+  const response = await fetch(endpoint.href, {
+    headers: {
+      "user-agent": "Mozilla/5.0 (compatible; DesignNotesBot/1.0)",
+    },
+    signal,
+  });
+  if (!response.ok) return null;
+
+  const post = await response.json();
+  const embeddedImage =
+    post._embedded?.["wp:featuredmedia"]?.[0]?.source_url ||
+    post.yoast_head_json?.og_image?.[0]?.url ||
+    "";
+
+  return {
+    description: stripTags(post.excerpt?.rendered || post.yoast_head_json?.og_description || ""),
+    hostname: target.hostname.replace(/^www\./, ""),
+    image: embeddedImage,
+    siteName: post.yoast_head_json?.og_site_name || target.hostname.replace(/^www\./, ""),
+    title: stripTags(post.title?.rendered || post.yoast_head_json?.title || target.href),
+    url: post.link || target.href,
+  };
+};
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=604800");
@@ -72,6 +103,14 @@ module.exports = async (req, res) => {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const wordpressMetadata = await wordpressPostMetadata(target, controller.signal);
+    if (wordpressMetadata) {
+      clearTimeout(timeout);
+      res.json(wordpressMetadata);
+      return;
+    }
+
     const response = await fetch(target.href, {
       headers: {
         "user-agent": "Mozilla/5.0 (compatible; DesignNotesBot/1.0)",

@@ -69,7 +69,7 @@ const fetchMetadata = async (url) => {
       ? "https://design-notes-chi.vercel.app/api/metadata"
       : "/api/metadata");
   const separator = endpoint.includes("?") ? "&" : "?";
-  const response = await fetch(`${endpoint}${separator}url=${encodeURIComponent(url)}&v=2`);
+  const response = await fetch(`${endpoint}${separator}url=${encodeURIComponent(url)}&v=4`);
   if (!response.ok) throw new Error("링크 정보를 가져오지 못했습니다.");
   return response.json();
 };
