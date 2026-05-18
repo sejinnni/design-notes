@@ -43,6 +43,14 @@ const escapeHtml = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
+const decodeHtml = (value) => {
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = String(value || "");
+  return textarea.value.replace(/\s+/g, " ").trim();
+};
+
+const stripHtml = (value) => decodeHtml(String(value || "").replace(/<[^>]*>/g, " "));
+
 const renderFormattedText = (value) =>
   escapeHtml(value)
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
@@ -62,7 +70,37 @@ const parseUrl = (value) => {
 
 const findFirstUrl = (value) => String(value || "").match(/https?:\/\/[^\s<>"']+/)?.[0] || "";
 
+const fetchWordpressMetadata = async (urlValue) => {
+  const target = parseUrl(urlValue);
+  const postId = target?.searchParams.get("p");
+  if (!target || !postId || !/^\d+$/.test(postId)) return null;
+
+  try {
+    const endpoint = new URL(`/wp-json/wp/v2/posts/${postId}`, target.origin);
+    const response = await fetch(endpoint.href);
+    if (!response.ok) return null;
+
+    const post = await response.json();
+    const yoast = post.yoast_head_json || {};
+    const image = yoast.og_image?.[0]?.url || "";
+
+    return {
+      description: stripHtml(yoast.og_description || yoast.description || post.excerpt?.rendered || ""),
+      hostname: target.hostname.replace(/^www\./, ""),
+      image,
+      siteName: decodeHtml(yoast.og_site_name || target.hostname.replace(/^www\./, "")),
+      title: stripHtml(yoast.og_title || yoast.title || post.title?.rendered || target.href),
+      url: post.link || target.href,
+    };
+  } catch {
+    return null;
+  }
+};
+
 const fetchMetadata = async (url) => {
+  const wordpressMetadata = await fetchWordpressMetadata(url);
+  if (wordpressMetadata) return wordpressMetadata;
+
   const endpoint =
     config.metadataEndpoint ||
     (window.location.protocol === "file:"
