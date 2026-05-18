@@ -51,6 +51,59 @@ const renderFormattedText = (value) =>
     .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
     .replaceAll("\n", "<br />");
 
+const parseUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url : null;
+  } catch {
+    return null;
+  }
+};
+
+const getYoutubeEmbedUrl = (url) => {
+  const host = url.hostname.replace(/^www\./, "");
+  if (host === "youtu.be") return `https://www.youtube.com/embed/${url.pathname.slice(1)}`;
+  if (!["youtube.com", "m.youtube.com"].includes(host)) return "";
+
+  if (url.pathname === "/watch") return `https://www.youtube.com/embed/${url.searchParams.get("v") || ""}`;
+  if (url.pathname.startsWith("/shorts/")) return `https://www.youtube.com/embed/${url.pathname.split("/")[2] || ""}`;
+  if (url.pathname.startsWith("/embed/")) return url.href;
+  return "";
+};
+
+const renderEmbed = (url) => {
+  const youtubeUrl = getYoutubeEmbedUrl(url);
+  if (youtubeUrl) {
+    return `
+      <div class="embed-video">
+        <iframe src="${escapeHtml(youtubeUrl)}" title="Embedded video" allowfullscreen loading="lazy"></iframe>
+      </div>
+    `;
+  }
+
+  if (/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(url.pathname)) {
+    return `<img class="embed-image" src="${escapeHtml(url.href)}" alt="" loading="lazy" />`;
+  }
+
+  return `
+    <a class="embed-link" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">
+      <span>${escapeHtml(url.hostname.replace(/^www\./, ""))}</span>
+      <strong>${escapeHtml(url.href)}</strong>
+    </a>
+  `;
+};
+
+const renderContent = (value) =>
+  String(value || "")
+    .split(/\n{2,}/)
+    .map((block) => {
+      const trimmed = block.trim();
+      const url = parseUrl(trimmed);
+      if (url && trimmed === block.trim()) return renderEmbed(url);
+      return `<p>${renderFormattedText(block)}</p>`;
+    })
+    .join("");
+
 const formatDate = (value) => {
   if (!value) return "";
   const [year, month] = value.split("-");
@@ -141,7 +194,7 @@ const renderPostDetail = async () => {
   const sections = post.content
     ? `
         <section class="post-section">
-          <p>${renderFormattedText(post.content)}</p>
+          <div class="post-content">${renderContent(post.content)}</div>
         </section>
       `
     : ["problem", "evidence", "hypothesis", "solution", "result"]
