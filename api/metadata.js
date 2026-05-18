@@ -11,15 +11,43 @@ const textBetween = (html, regex) => {
   return match?.[1]?.trim() || "";
 };
 
-const meta = (html, name) =>
-  textBetween(
-    html,
-    new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["'][^>]*>`, "i"),
-  ) ||
-  textBetween(
-    html,
-    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${name}["'][^>]*>`, "i"),
-  );
+const attrs = (tag) => {
+  const result = {};
+  tag.replace(/([\w:-]+)\s*=\s*(["'])(.*?)\2/g, (_, key, __, value) => {
+    result[key.toLowerCase()] = value;
+    return "";
+  });
+  return result;
+};
+
+const meta = (html, name) => {
+  const target = name.toLowerCase();
+  const tags = html.match(/<meta\b[^>]*>/gi) || [];
+  for (const tag of tags) {
+    const values = attrs(tag);
+    const key = (values.property || values.name || "").toLowerCase();
+    if (key === target && values.content) return values.content;
+  }
+  return "";
+};
+
+const firstJsonLd = (html) => {
+  const scripts = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  for (const script of scripts) {
+    const raw = textBetween(script, /<script[^>]*>([\s\S]*?)<\/script>/i);
+    try {
+      const data = JSON.parse(raw);
+      const graph = Array.isArray(data["@graph"]) ? data["@graph"] : [data];
+      const article =
+        graph.find((item) => ["NewsArticle", "Article", "BlogPosting"].includes(item["@type"])) ||
+        graph.find((item) => item.headline || item.name);
+      if (article) return article;
+    } catch {
+      continue;
+    }
+  }
+  return {};
+};
 
 const clean = (value = "") =>
   value
@@ -66,10 +94,24 @@ module.exports = async (req, res) => {
     }
 
     const html = await response.text();
-    const title = clean(meta(html, "og:title") || textBetween(html, /<title[^>]*>([\s\S]*?)<\/title>/i));
-    const description = clean(meta(html, "og:description") || meta(html, "description"));
+    const jsonLd = firstJsonLd(html);
+    const jsonImage = Array.isArray(jsonLd.image) ? jsonLd.image[0] : jsonLd.image?.url || jsonLd.thumbnailUrl || jsonLd.image;
+    const title = clean(
+      meta(html, "og:title") ||
+        meta(html, "twitter:title") ||
+        jsonLd.headline ||
+        jsonLd.name ||
+        textBetween(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i) ||
+        textBetween(html, /<title[^>]*>([\s\S]*?)<\/title>/i),
+    );
+    const description = clean(
+      meta(html, "og:description") ||
+        meta(html, "twitter:description") ||
+        meta(html, "description") ||
+        jsonLd.description,
+    );
     const siteName = clean(meta(html, "og:site_name") || target.hostname.replace(/^www\./, ""));
-    const imageValue = clean(meta(html, "og:image") || meta(html, "twitter:image"));
+    const imageValue = clean(meta(html, "og:image") || meta(html, "twitter:image") || jsonImage);
     const image = imageValue ? new URL(imageValue, target.href).href : "";
 
     res.json({

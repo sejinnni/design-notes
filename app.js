@@ -63,7 +63,13 @@ const parseUrl = (value) => {
 const findFirstUrl = (value) => String(value || "").match(/https?:\/\/[^\s<>"']+/)?.[0] || "";
 
 const fetchMetadata = async (url) => {
-  const response = await fetch(`/api/metadata?url=${encodeURIComponent(url)}`);
+  const endpoint =
+    config.metadataEndpoint ||
+    (window.location.protocol === "file:"
+      ? "https://design-notes-chi.vercel.app/api/metadata"
+      : "/api/metadata");
+  const separator = endpoint.includes("?") ? "&" : "?";
+  const response = await fetch(`${endpoint}${separator}url=${encodeURIComponent(url)}&v=2`);
   if (!response.ok) throw new Error("링크 정보를 가져오지 못했습니다.");
   return response.json();
 };
