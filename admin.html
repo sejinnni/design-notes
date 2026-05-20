@@ -92,6 +92,18 @@
             이미지 첨부
             <input name="image" type="file" accept="image/*" />
           </label>
+          <section class="editor-preview full" aria-labelledby="preview-title">
+            <h3 id="preview-title">Preview</h3>
+            <article class="post preview-post">
+              <header class="post-header preview-header">
+                <p class="post-meta" data-preview-meta></p>
+                <h1 data-preview-title>Untitled</h1>
+              </header>
+              <div class="post-content" data-preview-content>
+                <p class="empty-note">본문 미리보기</p>
+              </div>
+            </article>
+          </section>
           <div class="form-actions full">
             <button type="submit" data-save-label>Save</button>
             <button type="reset" data-cancel-edit>Clear</button>

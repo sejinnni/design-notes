@@ -554,6 +554,7 @@ const loadPostIntoEditor = (post) => {
       .filter(Boolean)
       .join("\n\n");
   form.elements.image.value = "";
+  form.dispatchEvent(new Event("input", { bubbles: true }));
 
   const saveLabel = form.querySelector("[data-save-label]");
   if (saveLabel) saveLabel.textContent = "Update";
@@ -946,6 +947,46 @@ const setupLinkPreview = () => {
   });
 };
 
+const setupEditorPreview = () => {
+  const form = document.querySelector("[data-post-form]");
+  const titleTarget = document.querySelector("[data-preview-title]");
+  const metaTarget = document.querySelector("[data-preview-meta]");
+  const contentTarget = document.querySelector("[data-preview-content]");
+  if (!form || !titleTarget || !metaTarget || !contentTarget) return;
+
+  let timer = 0;
+  let renderId = 0;
+
+  const renderPreview = async () => {
+    const currentRenderId = (renderId += 1);
+    const title = form.elements.title?.value.trim() || "Untitled";
+    const category = form.elements.category?.value || "build";
+    const date = form.elements.date?.value || new Date().toISOString().slice(0, 7);
+    const content = form.elements.content?.value || "";
+
+    titleTarget.textContent = title;
+    metaTarget.textContent = `${categoryLabels[category] || category} · ${formatDate(date)}`;
+    contentTarget.innerHTML = content.trim()
+      ? renderContent(content)
+      : '<p class="empty-note">본문 미리보기</p>';
+
+    await hydrateEmbeds(contentTarget);
+    if (currentRenderId !== renderId) return;
+  };
+
+  const schedulePreview = () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(renderPreview, 250);
+  };
+
+  form.addEventListener("input", schedulePreview);
+  form.addEventListener("change", schedulePreview);
+  form.addEventListener("reset", () => {
+    window.setTimeout(renderPreview, 0);
+  });
+  renderPreview();
+};
+
 const init = async () => {
   await renderPostLists();
   await renderPostDetail();
@@ -954,6 +995,7 @@ const init = async () => {
   setupFormatToolbar();
   setupMarkdownPaste();
   setupLinkPreview();
+  setupEditorPreview();
   await refreshAuthState();
   await renderAdminList();
 };
