@@ -191,21 +191,25 @@ const renderEmbed = (url) => {
   const youtubeUrl = getYoutubeEmbedUrl(url);
   if (youtubeUrl) {
     return `
-      <div class="embed-video">
-        <iframe src="${escapeHtml(youtubeUrl)}" title="Embedded video" allowfullscreen loading="lazy"></iframe>
+      <div class="embed-block">
+        <div class="embed-video">
+          <iframe src="${escapeHtml(youtubeUrl)}" title="Embedded video" allowfullscreen loading="lazy"></iframe>
+        </div>
       </div>
     `;
   }
 
   if (/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(url.pathname)) {
-    return `<img class="embed-image" src="${escapeHtml(url.href)}" alt="" loading="lazy" />`;
+    return `<div class="embed-block"><img class="embed-image" src="${escapeHtml(url.href)}" alt="" loading="lazy" /></div>`;
   }
 
   return `
-    <a class="embed-link" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer" data-embed-url="${escapeHtml(url.href)}">
-      <span>${escapeHtml(url.hostname.replace(/^www\./, ""))}</span>
-      <strong>${escapeHtml(url.href)}</strong>
-    </a>
+    <div class="embed-block">
+      <a class="embed-link" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer" data-embed-url="${escapeHtml(url.href)}">
+        <span>${escapeHtml(url.hostname.replace(/^www\./, ""))}</span>
+        <strong>${escapeHtml(url.href)}</strong>
+      </a>
+    </div>
   `;
 };
 
@@ -779,6 +783,9 @@ const setupFormatToolbar = () => {
     italic: ["*", "*"],
     strike: ["~~", "~~"],
     underline: ["++", "++"],
+    "heading-1": ["# ", ""],
+    "heading-2": ["## ", ""],
+    "heading-3": ["### ", ""],
     "color-red": ["[[color:red]]", "[[/color]]"],
     "color-blue": ["[[color:blue]]", "[[/color]]"],
     "color-green": ["[[color:green]]", "[[/color]]"],
@@ -926,7 +933,7 @@ const setupLinkPreview = () => {
     if (genericCard) {
       try {
         const metadata = await fetchMetadata(url.href);
-        preview.innerHTML = renderMetadataCard(metadata);
+        preview.innerHTML = `<div class="embed-block">${renderMetadataCard(metadata)}</div>`;
       } catch {
         preview.innerHTML = renderEmbed(url);
       }

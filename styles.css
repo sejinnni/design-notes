@@ -238,6 +238,7 @@ h2 {
 .post-content pre,
 .post-content hr,
 .table-wrap,
+.embed-block,
 .embed-link,
 .embed-video,
 .embed-image {
@@ -260,6 +261,21 @@ h2 {
 .embed-link + blockquote,
 .embed-link + hr {
   margin-top: 28px;
+}
+
+.embed-block {
+  margin-top: 22px;
+  margin-bottom: 34px;
+}
+
+.embed-block + * {
+  margin-top: 34px;
+}
+
+.embed-block > .embed-link,
+.embed-block > .embed-video,
+.embed-block > .embed-image {
+  margin: 0;
 }
 
 .embed-link,
@@ -514,6 +530,7 @@ h2 {
   position: fixed;
   z-index: 30;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 6px;
   border: 1px solid var(--line);
@@ -526,13 +543,19 @@ h2 {
 }
 
 .format-toolbar button {
-  width: 36px;
+  min-width: 36px;
   height: 34px;
   border: 0;
   background: transparent;
   color: var(--ink);
   font-size: 16px;
   font-weight: 650;
+}
+
+.format-toolbar .heading-format {
+  width: auto;
+  padding: 0 8px;
+  font-size: 13px;
 }
 
 .format-toolbar button:hover {
