@@ -244,26 +244,60 @@ h2 {
   margin-top: 18px;
 }
 
+.post-content p + h1,
+.post-content p + h2,
+.post-content p + h3,
+.post-content p + h4,
+.post-content p + h5,
+.embed-link + h1,
+.embed-link + h2,
+.embed-link + h3,
+.embed-link + h4,
+.embed-link + h5,
+.embed-link + p,
+.embed-link + ul,
+.embed-link + ol,
+.embed-link + blockquote,
+.embed-link + hr {
+  margin-top: 28px;
+}
+
+.embed-link,
+.embed-video,
+.embed-image,
+.table-wrap {
+  margin-bottom: 24px;
+}
+
+.post-content h1,
 .post-content h2,
 .post-content h3,
 .post-content h4,
 .post-content h5 {
-  margin-top: 34px;
+  margin-top: 36px;
   font-weight: 600;
   line-height: 1.35;
 }
 
+.post-content h1 {
+  font-size: 24px;
+}
+
 .post-content h2 {
-  font-size: 22px;
+  font-size: 21px;
 }
 
 .post-content h3 {
-  font-size: 19px;
+  font-size: 18px;
 }
 
 .post-content h4,
 .post-content h5 {
   font-size: 16px;
+}
+
+.post-content > :first-child {
+  margin-top: 0;
 }
 
 .post-content ul,

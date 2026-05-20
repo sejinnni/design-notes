@@ -286,15 +286,15 @@ const renderContent = (value) => {
       continue;
     }
 
-    const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    const heading = trimmed.match(/^(#{1,3})\s*(.+)$/);
     if (heading) {
       flushLooseBlocks();
-      const level = heading[1].length + 1;
+      const level = heading[1].length;
       html.push(`<h${level}>${renderFormattedText(heading[2])}</h${level}>`);
       continue;
     }
 
-    if (/^---+$/.test(trimmed)) {
+    if (/^([-*_])(?:\s*\1){2,}$/.test(trimmed)) {
       flushLooseBlocks();
       html.push("<hr />");
       continue;
