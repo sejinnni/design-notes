@@ -464,13 +464,16 @@ h2 {
 
 .embed-image {
   display: block;
+  width: 100%;
   max-width: 100%;
+  height: auto;
   border: 1px solid var(--line);
 }
 
 .image-figure {
   margin-right: 0;
   margin-left: 0;
+  max-width: 100%;
 }
 
 .image-figure figcaption {
@@ -506,6 +509,12 @@ h2 {
 
 .editor-form .full {
   grid-column: 1 / -1;
+}
+
+.image-insert-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 160px);
+  gap: 18px;
 }
 
 .editor-form input,
@@ -791,6 +800,10 @@ h2 {
   .editor-form,
   .auth-form,
   .admin-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .image-insert-controls {
     grid-template-columns: 1fr;
   }
 

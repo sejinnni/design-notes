@@ -193,8 +193,36 @@ const getYoutubeEmbedUrl = (url) => {
   return "";
 };
 
-const renderImageFigure = (url, caption = "") => `
-  <figure class="image-figure">
+const normalizeImageSize = (value) => {
+  const size = String(value || "").trim().toLowerCase();
+  const percent = size.match(/^(\d{1,3})%$/);
+  if (percent) {
+    const width = Number(percent[1]);
+    return width >= 25 && width <= 100 ? `${width}%` : "";
+  }
+
+  const pixels = size.match(/^(\d{2,4})px$/);
+  if (pixels) {
+    const width = Number(pixels[1]);
+    return width >= 120 && width <= 720 ? `${width}px` : "";
+  }
+
+  return "";
+};
+
+const parseImageLabel = (value) => {
+  const parts = String(value || "").split("|");
+  const size = normalizeImageSize(parts[parts.length - 1]);
+  if (!size) return { caption: String(value || "").trim(), size: "" };
+
+  return {
+    caption: parts.slice(0, -1).join("|").trim(),
+    size,
+  };
+};
+
+const renderImageFigure = (url, caption = "", size = "") => `
+  <figure class="image-figure"${size ? ` style="width: ${escapeHtml(size)};"` : ""}>
     <img class="embed-image" src="${escapeHtml(url.href)}" alt="${escapeHtml(caption)}" loading="lazy" />
     ${caption ? `<figcaption>${renderFormattedText(caption)}</figcaption>` : ""}
   </figure>
@@ -341,8 +369,9 @@ const renderContent = (value) => {
     if (imageMatch) {
       const url = parseUrl(imageMatch[2]);
       if (url) {
+        const image = parseImageLabel(imageMatch[1]);
         flushLooseBlocks();
-        html.push(`<div class="embed-block">${renderImageFigure(url, imageMatch[1].trim())}</div>`);
+        html.push(`<div class="embed-block">${renderImageFigure(url, image.caption, image.size)}</div>`);
         continue;
       }
     }
@@ -795,7 +824,8 @@ const setupForm = () => {
 
     try {
       const imageUrl = await uploadPostImage(file, session);
-      insertContentBlock(form.elements.content, `![캡션 입력](${imageUrl})`);
+      const imageSize = normalizeImageSize(form.elements.imageSize?.value) || "100%";
+      insertContentBlock(form.elements.content, `![캡션 입력|${imageSize}](${imageUrl})`);
       form.elements.image.value = "";
       setAuthMessage("이미지를 삽입했습니다.");
     } catch (error) {
