@@ -719,6 +719,50 @@ const setupForm = () => {
     return publicUrl;
   };
 
+  const insertContentBlock = (textarea, value) => {
+    if (!textarea || !value) return;
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? start;
+    const before = textarea.value.slice(0, start);
+    const after = textarea.value.slice(end);
+    const prefix = before && !before.endsWith("\n") ? "\n\n" : "";
+    const suffix = after && !after.startsWith("\n") ? "\n\n" : "\n";
+
+    textarea.setRangeText(`${prefix}${value}${suffix}`, start, end, "end");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.focus();
+  };
+
+  form.elements.image?.addEventListener("change", async () => {
+    const file = form.elements.image.files?.[0];
+    if (!file || !db) return;
+
+    const {
+      data: { session },
+    } = await db.auth.getSession();
+
+    if (!session || !isAdminEmail(session.user.email)) {
+      setAuthMessage("로그인 후 이미지를 삽입할 수 있습니다.");
+      form.elements.image.value = "";
+      return;
+    }
+
+    form.elements.image.disabled = true;
+    setAuthMessage("이미지 업로드 중...");
+
+    try {
+      const imageUrl = await uploadPostImage(file, session);
+      insertContentBlock(form.elements.content, imageUrl);
+      form.elements.image.value = "";
+      setAuthMessage("이미지를 삽입했습니다.");
+    } catch (error) {
+      setAuthMessage(error.message);
+    } finally {
+      form.elements.image.disabled = false;
+    }
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!db) return;
@@ -733,21 +777,13 @@ const setupForm = () => {
     }
 
     const data = new FormData(form);
-    let imageUrl = form.dataset.currentImageUrl || "";
-
-    try {
-      imageUrl = (await uploadPostImage(data.get("image"), session)) || imageUrl;
-    } catch (error) {
-      setAuthMessage(error.message);
-      return;
-    }
 
     const post = {
       category: data.get("category"),
       date: data.get("date"),
       title: data.get("title").trim(),
       content: data.get("content").trim(),
-      image_url: imageUrl,
+      image_url: form.dataset.currentImageUrl || "",
       is_published: true,
     };
 
