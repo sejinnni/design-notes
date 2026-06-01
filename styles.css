@@ -241,6 +241,7 @@ h2 {
 .embed-block,
 .embed-link,
 .embed-video,
+.image-figure,
 .embed-image {
   margin-top: 18px;
 }
@@ -280,6 +281,7 @@ h2 {
 
 .embed-link,
 .embed-video,
+.image-figure,
 .embed-image,
 .table-wrap {
   margin-bottom: 24px;
@@ -464,6 +466,18 @@ h2 {
   display: block;
   max-width: 100%;
   border: 1px solid var(--line);
+}
+
+.image-figure {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.image-figure figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .post-header p:last-child {

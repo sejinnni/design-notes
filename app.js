@@ -132,7 +132,13 @@ const parseUrl = (value) => {
   }
 };
 
-const findFirstUrl = (value) => String(value || "").match(/https?:\/\/[^\s<>"']+/)?.[0] || "";
+const findFirstUrl = (value) =>
+  String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => !/^!\[[^\]]*\]\(https?:\/\/[^\s)]+\)$/.test(line))
+    .join("\n")
+    .match(/https?:\/\/[^\s<>"']+/)?.[0] || "";
 
 const fetchWordpressMetadata = async (urlValue) => {
   const target = parseUrl(urlValue);
@@ -187,6 +193,13 @@ const getYoutubeEmbedUrl = (url) => {
   return "";
 };
 
+const renderImageFigure = (url, caption = "") => `
+  <figure class="image-figure">
+    <img class="embed-image" src="${escapeHtml(url.href)}" alt="${escapeHtml(caption)}" loading="lazy" />
+    ${caption ? `<figcaption>${renderFormattedText(caption)}</figcaption>` : ""}
+  </figure>
+`;
+
 const renderEmbed = (url) => {
   const youtubeUrl = getYoutubeEmbedUrl(url);
   if (youtubeUrl) {
@@ -200,7 +213,7 @@ const renderEmbed = (url) => {
   }
 
   if (/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(url.pathname)) {
-    return `<div class="embed-block"><img class="embed-image" src="${escapeHtml(url.href)}" alt="" loading="lazy" /></div>`;
+    return `<div class="embed-block">${renderImageFigure(url)}</div>`;
   }
 
   return `
@@ -322,6 +335,16 @@ const renderContent = (value) => {
       if (!list) list = { type, items: [] };
       list.items.push(listMatch[2] || listMatch[1]);
       continue;
+    }
+
+    const imageMatch = trimmed.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (imageMatch) {
+      const url = parseUrl(imageMatch[2]);
+      if (url) {
+        flushLooseBlocks();
+        html.push(`<div class="embed-block">${renderImageFigure(url, imageMatch[1].trim())}</div>`);
+        continue;
+      }
     }
 
     const url = parseUrl(trimmed);
@@ -702,11 +725,12 @@ const setupForm = () => {
   const uploadPostImage = async (file, session) => {
     if (!file || !file.size) return "";
 
-    const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "jpg";
+    const uploadFile = await convertImageForUpload(file);
+    const extension = uploadFile.name.includes(".") ? uploadFile.name.split(".").pop().toLowerCase() : "jpg";
     const path = `${session.user.id}/${Date.now()}.${extension.replace(/[^a-z0-9]/g, "")}`;
-    const { error } = await db.storage.from("post-images").upload(path, file, {
+    const { error } = await db.storage.from("post-images").upload(path, uploadFile, {
       cacheControl: "31536000",
-      contentType: file.type || "image/jpeg",
+      contentType: uploadFile.type || "image/jpeg",
       upsert: false,
     });
 
@@ -717,6 +741,24 @@ const setupForm = () => {
     } = db.storage.from("post-images").getPublicUrl(path);
 
     return publicUrl;
+  };
+
+  const convertImageForUpload = async (file) => {
+    const isHeic = /hei[cf]$/i.test(file.name) || /image\/hei[cf]/i.test(file.type);
+    if (!isHeic) return file;
+
+    if (!window.heic2any) {
+      throw new Error("HEIC 이미지를 변환하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    const converted = await window.heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: 0.9,
+    });
+    const blob = Array.isArray(converted) ? converted[0] : converted;
+    const name = file.name.replace(/\.[^.]+$/, "") || "image";
+    return new File([blob], `${name}.jpg`, { type: "image/jpeg" });
   };
 
   const insertContentBlock = (textarea, value) => {
@@ -749,11 +791,11 @@ const setupForm = () => {
     }
 
     form.elements.image.disabled = true;
-    setAuthMessage("이미지 업로드 중...");
+    setAuthMessage(/hei[cf]$/i.test(file.name) || /image\/hei[cf]/i.test(file.type) ? "HEIC 이미지를 변환 중..." : "이미지 업로드 중...");
 
     try {
       const imageUrl = await uploadPostImage(file, session);
-      insertContentBlock(form.elements.content, imageUrl);
+      insertContentBlock(form.elements.content, `![캡션 입력](${imageUrl})`);
       form.elements.image.value = "";
       setAuthMessage("이미지를 삽입했습니다.");
     } catch (error) {
