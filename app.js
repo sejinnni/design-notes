@@ -210,13 +210,20 @@ const normalizeImageSize = (value) => {
   return "";
 };
 
+const IMAGE_CAPTION_PLACEHOLDER = "캡션 입력";
+
+const normalizeImageCaption = (value) => {
+  const caption = String(value || "").trim();
+  return caption === IMAGE_CAPTION_PLACEHOLDER ? "" : caption;
+};
+
 const parseImageLabel = (value) => {
   const parts = String(value || "").split("|");
   const size = normalizeImageSize(parts[parts.length - 1]);
-  if (!size) return { caption: String(value || "").trim(), size: "" };
+  if (!size) return { caption: normalizeImageCaption(value), size: "" };
 
   return {
-    caption: parts.slice(0, -1).join("|").trim(),
+    caption: normalizeImageCaption(parts.slice(0, -1).join("|")),
     size,
   };
 };
@@ -825,7 +832,7 @@ const setupForm = () => {
     try {
       const imageUrl = await uploadPostImage(file, session);
       const imageSize = normalizeImageSize(form.elements.imageSize?.value) || "100%";
-      insertContentBlock(form.elements.content, `![캡션 입력|${imageSize}](${imageUrl})`);
+      insertContentBlock(form.elements.content, `![${IMAGE_CAPTION_PLACEHOLDER}|${imageSize}](${imageUrl})`);
       form.elements.image.value = "";
       setAuthMessage("이미지를 삽입했습니다.");
     } catch (error) {
